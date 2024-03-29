@@ -6,11 +6,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 import torchvision.transforms as tf
+import warnings
+warnings.filterwarnings("ignore")
 
 
 MEAN = [0.485, 0.456, 0.406]
 STD = [0.229, 0.224, 0.225]
 dimension = 224
+
 
 def transform_img_tensor(image_tensor):
     transform = tf.Compose(
@@ -39,6 +42,14 @@ def convert_bgr_to_tensor(bgr_array, device):
     img_tensor = transform_img_tensor(img_tensor).to(device, dtype=torch.float)
     return img_tensor
 
+
+def calc_img_distance(img_1, img_2):
+    img_diff = img_1 - img_2
+    linf = np.linalg.norm(img_diff, ord=float("inf"))
+    l2 = np.linalg.norm(img_diff, ord=2)
+    return l2, linf
+
+
 def main(args):
     device = torch.device("cuda")
     vis_root_dir = os.path.join(
@@ -60,7 +71,7 @@ def main(args):
     plot_image(vis_img, save_name)
 
     # === Generate GT watermrk ===
-    watermark_str = "0101010101010101" * 2
+    watermark_str = "0" * 16 + "1" * 16
     watermark_gt = np.asarray(
         [int(i) for i in watermark_str]
     )
@@ -68,8 +79,10 @@ def main(args):
 
     # === Setup Encoder and Encode watermark ===
     encoder = WatermarkEncoder()
-    encoder.set_watermark('bits', watermark) 
-    img_watermarked_bgr = encoder.encode(img_orig_bgr, 'rivaGan')
+    encoder.set_watermark('bits', watermark)
+    img_watermarked_bgr = img_orig_bgr
+    for _ in range(1):
+        img_watermarked_bgr = encoder.encode(img_watermarked_bgr, 'rivaGan')
     # Visualize watermarked image
     vis_img = cv2.cvtColor(img_watermarked_bgr, cv2.COLOR_BGR2RGB)
     save_name = os.path.join(vis_root_dir, "image_watermarked.png")
@@ -80,6 +93,9 @@ def main(args):
     watermark_decoded = decoder.decode(img_watermarked_bgr, 'rivaGan')
     psrn_watermark = compare_psnr(img_orig_bgr, img_watermarked_bgr, data_range=255)
     print("Watermarked Image PSNR: ", psrn_watermark)
+
+    # === Decode the orginal image (for verification) ===
+    orig_decoding = decoder.decode(img_orig_bgr, "rivaGan")
 
     # === Vis watermark Err image ===
     image_err = img_watermarked_bgr.astype(float) - img_orig_bgr.astype(float)
@@ -113,6 +129,8 @@ def main(args):
     # === Check Watermark Decoded ===
     print("Watermarks:")
     print("GT     : ", watermark_str)
+    orig_decoded_str = "".join([str(i) for i in orig_decoding.tolist()])
+    print("Orig   : ", orig_decoded_str)
     watermark_decoded_str = "".join([str(i) for i in watermark_decoded.tolist()])
     print("Decoded: ", watermark_decoded_str)
     watermark_noisy_str = "".join([str(i) for i in watermark_noisy_decoded.tolist()])
@@ -121,9 +139,21 @@ def main(args):
 
     # === Report Bitwise-Acc ===
     print("Calculate Bitwise-Acc: ")
+    print("Orig:    {} %".format(np.mean(orig_decoding == watermark_gt)*100))
     print("Decoded: {} %".format(np.mean(watermark_decoded == watermark_gt)*100))
     print("Noisy  : {} %".format(np.mean(watermark_noisy_decoded == watermark_gt) * 100))
 
+    # === Check image distance (input space) ===
+    watermarked_l2, watermarked_linf = calc_img_distance(
+        (img_orig_bgr.astype(float) / 255).reshape(-1), 
+        (img_watermarked_bgr.astype(float) / 255).reshape(-1)
+    )
+    print("Distance [Watermarked - Orig]: ", watermarked_l2, watermarked_linf)
+    noisy_l2, noisy_linf = calc_img_distance(
+        (img_watermarked_bgr.astype(float) / 255).reshape(-1),
+        (noisy_img_bgr.astype(float) / 255).reshape(-1)
+    )
+    print("Distance [Watermarked - Noise]: ", noisy_l2, noisy_linf)
 
     # === Get DINO model and check the DINO encoding ===
     dino_backbone = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14').to(device)
@@ -142,7 +172,7 @@ def main(args):
     # Noisy image
     img_noisy_input = convert_bgr_to_tensor(noisy_img_bgr, device)
     img_noisy_dino_feature = dino_backbone(img_noisy_input)
-    distance_noisy = torch.linalg.norm((img_noisy_dino_feature - img_orig_dino_feature), ord=2)
+    distance_noisy = torch.linalg.norm((img_noisy_dino_feature - img_watermarked_dino_feature), ord=2)
     print("  NoisyImg:  ", distance_noisy.item())
 
 
