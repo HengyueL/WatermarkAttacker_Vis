@@ -59,12 +59,14 @@ def main(args):
 
     # === Read in Original Image ===
     img_orig_path = os.path.join(
-        "examples", "ori_imgs", "000000000711.png"
+        "examples", "ori_imgs", "000000001442.png"
     )
     # img_orig_path = os.path.join(
     #     "examples", "ori_imgs", "000000000776.png"
     # )
     img_orig_bgr = cv2.imread(img_orig_path)
+    img_orig_bgr = 125 * np.ones_like(img_orig_bgr)
+
     # Visualize image
     vis_img = cv2.cvtColor(img_orig_bgr, cv2.COLOR_BGR2RGB)
     save_name = os.path.join(vis_root_dir, "image_orig.png")
@@ -83,6 +85,7 @@ def main(args):
     img_watermarked_bgr = img_orig_bgr
     for _ in range(1):
         img_watermarked_bgr = encoder.encode(img_watermarked_bgr, 'rivaGan')
+        # img_watermarked_bgr = encoder.encode(img_watermarked_bgr, 'dwtDct')
     # Visualize watermarked image
     vis_img = cv2.cvtColor(img_watermarked_bgr, cv2.COLOR_BGR2RGB)
     save_name = os.path.join(vis_root_dir, "image_watermarked.png")
@@ -91,11 +94,13 @@ def main(args):
     # ===  Decode the watermarked image ===
     decoder = WatermarkDecoder('bits', 32)
     watermark_decoded = decoder.decode(img_watermarked_bgr, 'rivaGan')
+    # watermark_decoded = decoder.decode(img_watermarked_bgr, 'dwtDct')
     psrn_watermark = compare_psnr(img_orig_bgr, img_watermarked_bgr, data_range=255)
     print("Watermarked Image PSNR: ", psrn_watermark)
 
     # === Decode the orginal image (for verification) ===
     orig_decoding = decoder.decode(img_orig_bgr, "rivaGan")
+    # orig_decoding = decoder.decode(img_orig_bgr, "dwtDct")
 
     # === Vis watermark Err image ===
     image_err = img_watermarked_bgr.astype(float) - img_orig_bgr.astype(float)
@@ -109,11 +114,18 @@ def main(args):
     plot_image(vis_img, save_name)
 
     # === Benchmarked by a noisy iamge
-    magnitude = 10
+    magnitude = 30
     low, high = -magnitude, magnitude
-    noisy_img_bgr = np.clip(np.random.randint(
-        low, high, img_watermarked_bgr.shape
-    ) + img_watermarked_bgr, 0, 255)
+    # noisy_img_bgr = img_watermarked_bgr.copy().astype(int)
+    # noisy_img_bgr = np.clip(np.random.randint(
+    #     low, high, noisy_img_bgr.shape
+    # ) + noisy_img_bgr, 0, 255)
+
+    noisy_img_bgr = img_watermarked_bgr.copy().astype(int)
+    # noisy_img_bgr[:, :, 0] = noisy_img_bgr[:, :, 0] + np.random.randint(low, high, noisy_img_bgr[:, :, 0].shape)
+    noisy_img_bgr[:, :, 0] = noisy_img_bgr[:, :, 0] + magnitude
+    noisy_img_bgr = np.clip(noisy_img_bgr, 0, 255).astype(np.uint8)
+
     # Visualize the noisy img
     vis_img = np.stack(
         [noisy_img_bgr[:, :, 2], noisy_img_bgr[:, :, 1], noisy_img_bgr[:, :, 0]],
@@ -123,6 +135,7 @@ def main(args):
     plot_image(vis_img, save_name)
     # Decode the noisy image
     watermark_noisy_decoded = decoder.decode(noisy_img_bgr, 'rivaGan')
+    # watermark_noisy_decoded = decoder.decode(noisy_img_bgr, "dwtDct")
     psnr_noisy_img = compare_psnr(img_watermarked_bgr, noisy_img_bgr, data_range=255)
     print("Noisy Image PSNR: ", psnr_noisy_img)
 
