@@ -83,7 +83,7 @@ def main(args):
     encoder = WatermarkEncoder()
     encoder.set_watermark('bits', watermark)
     img_watermarked_bgr = img_orig_bgr
-    for _ in range(1):
+    for _ in range(10):
         img_watermarked_bgr = encoder.encode(img_watermarked_bgr, 'rivaGan')
         # img_watermarked_bgr = encoder.encode(img_watermarked_bgr, 'dwtDct')
     # Visualize watermarked image
