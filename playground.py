@@ -121,10 +121,13 @@ def main(args):
     #     low, high, noisy_img_bgr.shape
     # ) + noisy_img_bgr, 0, 255)
 
-    noisy_img_bgr = img_orig_bgr.copy().astype(int)
-    noisy_img_bgr = np.clip(np.random.randint(
-        low, high, noisy_img_bgr.shape
-    ) + noisy_img_bgr, 0, 255)
+    # noisy_img_bgr = img_orig_bgr.copy().astype(int)
+    noisy_img_bgr = img_watermarked_bgr.copy().astype(int)
+    # noisy_img_bgr = np.clip(np.random.randint(
+    #     low, high, noisy_img_bgr.shape
+    # ) + noisy_img_bgr, 0, 255)
+    shift = 10
+    noisy_img_bgr[shift:, shift:, :] = noisy_img_bgr[:-shift, :-shift, :]
 
     # Visualize the noisy img
     vis_img = np.stack(
