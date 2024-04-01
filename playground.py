@@ -65,7 +65,7 @@ def main(args):
     #     "examples", "ori_imgs", "000000000776.png"
     # )
     img_orig_bgr = cv2.imread(img_orig_path)
-    img_orig_bgr = 125 * np.ones_like(img_orig_bgr)
+    # img_orig_bgr = 125 * np.ones_like(img_orig_bgr)
 
     # Visualize image
     vis_img = cv2.cvtColor(img_orig_bgr, cv2.COLOR_BGR2RGB)
@@ -109,22 +109,22 @@ def main(args):
         [image_err[:, :, 2], image_err[:, :, 1], image_err[:, :, 0]],
         axis=2
     )
-    vis_img = (vis_img - np.amin(vis_img))/255.
+    vis_img = (vis_img - np.amin(vis_img))/ (np.amax(vis_img) - np.amin(vis_img))
     save_name = os.path.join(vis_root_dir, "image_err.png")
     plot_image(vis_img, save_name)
 
     # === Benchmarked by a noisy iamge
-    magnitude = 30
+    magnitude = 10
     low, high = -magnitude, magnitude
     # noisy_img_bgr = img_watermarked_bgr.copy().astype(int)
     # noisy_img_bgr = np.clip(np.random.randint(
     #     low, high, noisy_img_bgr.shape
     # ) + noisy_img_bgr, 0, 255)
 
-    noisy_img_bgr = img_watermarked_bgr.copy().astype(int)
-    # noisy_img_bgr[:, :, 0] = noisy_img_bgr[:, :, 0] + np.random.randint(low, high, noisy_img_bgr[:, :, 0].shape)
-    noisy_img_bgr[:, :, 0] = noisy_img_bgr[:, :, 0] + magnitude
-    noisy_img_bgr = np.clip(noisy_img_bgr, 0, 255).astype(np.uint8)
+    noisy_img_bgr = img_orig_bgr.copy().astype(int)
+    noisy_img_bgr = np.clip(np.random.randint(
+        low, high, noisy_img_bgr.shape
+    ) + noisy_img_bgr, 0, 255)
 
     # Visualize the noisy img
     vis_img = np.stack(
@@ -136,7 +136,7 @@ def main(args):
     # Decode the noisy image
     watermark_noisy_decoded = decoder.decode(noisy_img_bgr, 'rivaGan')
     # watermark_noisy_decoded = decoder.decode(noisy_img_bgr, "dwtDct")
-    psnr_noisy_img = compare_psnr(img_watermarked_bgr, noisy_img_bgr, data_range=255)
+    psnr_noisy_img = compare_psnr(img_orig_bgr, noisy_img_bgr, data_range=255)
     print("Noisy Image PSNR: ", psnr_noisy_img)
 
     # === Check Watermark Decoded ===
@@ -163,7 +163,7 @@ def main(args):
     )
     print("Distance [Watermarked - Orig]: ", watermarked_l2, watermarked_linf)
     noisy_l2, noisy_linf = calc_img_distance(
-        (img_watermarked_bgr.astype(float) / 255).reshape(-1),
+        (img_orig_bgr.astype(float) / 255).reshape(-1),
         (noisy_img_bgr.astype(float) / 255).reshape(-1)
     )
     print("Distance [Watermarked - Noise]: ", noisy_l2, noisy_linf)
@@ -185,7 +185,7 @@ def main(args):
     # Noisy image
     img_noisy_input = convert_bgr_to_tensor(noisy_img_bgr, device)
     img_noisy_dino_feature = dino_backbone(img_noisy_input)
-    distance_noisy = torch.linalg.norm((img_noisy_dino_feature - img_watermarked_dino_feature), ord=2)
+    distance_noisy = torch.linalg.norm((img_noisy_dino_feature - img_orig_dino_feature), ord=2)
     print("  NoisyImg:  ", distance_noisy.item())
 
 
