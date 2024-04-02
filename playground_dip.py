@@ -56,7 +56,7 @@ def main(args):
 
     # === Read in Orig Image ===
     img_orig_path = os.path.join(
-        "examples", "ori_imgs", "000000001442.png"
+        "examples", "ori_imgs", "000000000711.png"
     )
     img_orig_bgr = cv2.imread(img_orig_path)  # bgr image, unit8 code
     # img_orig_rgb = bgr2rgb(img_orig_bgr)
@@ -64,10 +64,12 @@ def main(args):
     # plot_image(img_orig_rgb, save_name)
 
     # === Encode a watermark ===
-    watermark_str = "0" * 16 + "1" * 16
-    watermark_gt = np.asarray(
-        [int(i) for i in watermark_str]
-    )
+    # watermark_str = "0" * 16 + "1" * 16
+    # watermark_gt = np.asarray(
+    #     [int(i) for i in watermark_str]
+    # )
+    watermark_gt = np.random.binomial(1, 0.5, 32)
+    watermark_str = "".join([str(i) for i in watermark_gt.tolist()])
     watermark = watermark_str.encode('utf-8')
     print("GT  watermark: ", watermark_str)
     # Set up encoder/decoder
@@ -99,19 +101,25 @@ def main(args):
     # DIP params
     show_every = 50
     exp_weight = 0.99  # Exponential smoothing factor
-    total_iters = 3000
+    total_iters = 1000
     LR = 0.01
-    reg_noise_std = 1./30.
+    reg_noise_std = 1./20.
     params = model.parameters()
     optimizer = torch.optim.Adam(params, lr=LR)
-    loss_func = torch.nn.MSELoss()
+    # loss_func = torch.nn.MSELoss()
+    loss_func = torch.nn.SmoothL1Loss()
     
     # Optimize
     model.train()
     out_avg = None
     for num_iter in range(total_iters):
         optimizer.zero_grad()
-        out = model(img_watermarked_bgr_tensor)
+
+        if reg_noise_std > 0:
+            net_input = img_watermarked_bgr_tensor + (torch.zeros_like(img_watermarked_bgr_tensor).normal_() * reg_noise_std)
+        else:
+            net_input = img_watermarked_bgr_tensor
+        out = model(net_input)
 
         # Smoothing
         if out_avg is None:
@@ -135,7 +143,8 @@ def main(args):
         # print("  <PSNR> --- rec|water %.02f --- rec|orig %.02f --- recon_sm|water %.02f " % (psnr_recon_watermarked, psnr_orig_recon, psnr_recon_watermarked_smoothed))
 
         # Checkpoint Vis
-        if num_iter % show_every == 0 and num_iter > 0:
+        # if num_iter % show_every == 0 and num_iter > 0:
+        if num_iter % show_every == 0:
             psnr_recon_watermarked = compare_psnr(img_watermarked_bgr.astype(np.int16), img_recon_np_int, data_range=255)
             psnr_orig_recon = compare_psnr(img_orig_bgr.astype(np.int16), img_recon_np_int, data_range=255)
             psnr_recon_watermarked_smoothed = compare_psnr(img_watermarked_bgr.astype(np.int16), img_recon_np_smoothed_int, data_range=255)
@@ -144,7 +153,7 @@ def main(args):
 
             # Decode the recon and compute the bitwise-acc
             img_recon_bgr = img_recon_np_int.astype(np.uint8)
-            recon_decoding = decoder.decode(img_recon_bgr)
+            recon_decoding = decoder.decode(img_recon_bgr, "rivaGan")
             recon_decoding_str = "".join([str(i) for i in recon_decoding.tolist()])
             bitwise_acc = np.mean(recon_decoding == watermark_gt)
             print("  Recon Bitwise Acc. - {:.4f} \% ".format(bitwise_acc * 100))
