@@ -193,7 +193,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    print("Opening sentence.")
+    print("Grid Search on linear segment")
     parser = argparse.ArgumentParser(description='Some arguments to play with.')
     parser.add_argument(
         '--checkpoint', default='./ckpt/coco.pth', type=str, help='Model checkpoint file.'
