@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from torchvision import transforms
 from tqdm import tqdm
 from bm3d import bm3d_rgb
-from compressai.zoo import bmshj2018_factorized, bmshj2018_hyperprior, mbt2018_mean, mbt2018, cheng2020_anchor
+# from compressai.zoo import bmshj2018_factorized, bmshj2018_hyperprior, mbt2018_mean, mbt2018, cheng2020_anchor
 
 
 class WMAttacker:

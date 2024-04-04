@@ -1,7 +1,7 @@
 from PIL import Image
 import torch
 import math
-from pytorch_msssim import ssim, ms_ssim
+# from pytorch_msssim import ssim, ms_ssim
 from torchvision import transforms
 
 
@@ -27,7 +27,8 @@ def eval_psnr_ssim_msssim(ori_img_path, new_img_path):
         new_img = new_img.resize(ori_img.size)
     ori_x = transforms.ToTensor()(ori_img).unsqueeze(0)
     new_x = transforms.ToTensor()(new_img).unsqueeze(0)
-    return compute_psnr(ori_x, new_x), compute_ssim(ori_x, new_x), compute_msssim(ori_x, new_x)
+    # return compute_psnr(ori_x, new_x), compute_ssim(ori_x, new_x), compute_msssim(ori_x, new_x)
+    return compute_psnr(ori_x, new_x), 0, 0
 
 
 def bytearray_to_bits(x):
